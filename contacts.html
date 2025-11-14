@@ -1,0 +1,629 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>VCF Contact Editor</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 20px;
+        }
+        .container {
+            max-width: 1000px;
+            margin: 0 auto;
+            background: white;
+            border-radius: 20px;
+            box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+            overflow: hidden;
+        }
+        .header {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 30px;
+            text-align: center;
+        }
+        .header h1 {
+            font-size: 32px;
+            margin-bottom: 10px;
+        }
+        .header p {
+            opacity: 0.9;
+            font-size: 16px;
+        }
+        .content {
+            padding: 30px;
+        }
+        .upload-section {
+            display: flex;
+            gap: 15px;
+            margin-bottom: 30px;
+        }
+        .upload-box {
+            flex: 1;
+            border: 3px dashed #667eea;
+            padding: 40px 20px;
+            text-align: center;
+            border-radius: 15px;
+            background: #f8f9ff;
+            cursor: pointer;
+            transition: all 0.3s;
+        }
+        .upload-box:hover {
+            background: #f0f2ff;
+            border-color: #764ba2;
+            transform: translateY(-2px);
+        }
+        .upload-box.active {
+            background: #e8ebff;
+            border-color: #764ba2;
+        }
+        input[type="file"] {
+            display: none;
+        }
+        .icon {
+            font-size: 48px;
+            margin-bottom: 10px;
+        }
+        .upload-title {
+            font-size: 18px;
+            font-weight: bold;
+            color: #667eea;
+            margin-bottom: 5px;
+        }
+        .upload-subtitle {
+            font-size: 14px;
+            color: #666;
+        }
+        .btn {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 14px 30px;
+            border: none;
+            border-radius: 10px;
+            cursor: pointer;
+            font-size: 16px;
+            font-weight: bold;
+            transition: all 0.3s;
+            box-shadow: 0 4px 15px rgba(102, 126, 234, 0.4);
+        }
+        .btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 6px 20px rgba(102, 126, 234, 0.6);
+        }
+        .btn:disabled {
+            background: #ccc;
+            cursor: not-allowed;
+            transform: none;
+            box-shadow: none;
+        }
+        .btn-group {
+            display: flex;
+            gap: 15px;
+            margin-bottom: 20px;
+        }
+        .btn-secondary {
+            background: #28a745;
+        }
+        .btn-danger {
+            background: #dc3545;
+        }
+        .status {
+            padding: 15px 20px;
+            margin: 15px 0;
+            border-radius: 10px;
+            background: #d4edda;
+            color: #155724;
+            border-left: 4px solid #28a745;
+            animation: slideIn 0.3s;
+        }
+        @keyframes slideIn {
+            from {
+                opacity: 0;
+                transform: translateY(-10px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+        .status.warning {
+            background: #fff3cd;
+            color: #856404;
+            border-left-color: #ffc107;
+        }
+        .status.error {
+            background: #f8d7da;
+            color: #721c24;
+            border-left-color: #dc3545;
+        }
+        .table-container {
+            max-height: 500px;
+            overflow: auto;
+            border-radius: 10px;
+            border: 1px solid #e0e0e0;
+            margin-top: 20px;
+        }
+        table {
+            width: 100%;
+            border-collapse: collapse;
+        }
+        th {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 15px;
+            text-align: left;
+            position: sticky;
+            top: 0;
+            z-index: 10;
+            font-weight: 600;
+        }
+        td {
+            padding: 12px 15px;
+            border-bottom: 1px solid #f0f0f0;
+        }
+        tr:hover {
+            background: #f8f9ff;
+        }
+        input[type="text"] {
+            width: 100%;
+            padding: 8px 12px;
+            border: 2px solid #e0e0e0;
+            border-radius: 6px;
+            font-size: 14px;
+            transition: all 0.3s;
+        }
+        input[type="text"]:focus {
+            outline: none;
+            border-color: #667eea;
+            box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
+        }
+        .delete-btn {
+            background: #dc3545;
+            color: white;
+            border: none;
+            padding: 6px 12px;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 12px;
+            transition: all 0.3s;
+        }
+        .delete-btn:hover {
+            background: #c82333;
+            transform: scale(1.05);
+        }
+        .add-row-btn {
+            background: #28a745;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 8px;
+            cursor: pointer;
+            font-size: 14px;
+            font-weight: bold;
+            margin-top: 15px;
+            transition: all 0.3s;
+        }
+        .add-row-btn:hover {
+            background: #218838;
+            transform: translateY(-2px);
+        }
+        .hide {
+            display: none;
+        }
+        .info {
+            background: linear-gradient(135deg, #e8ebff 0%, #f0f2ff 100%);
+            padding: 20px;
+            border-radius: 10px;
+            margin-top: 20px;
+            font-size: 14px;
+            color: #333;
+            border-left: 4px solid #667eea;
+        }
+        .info strong {
+            color: #667eea;
+            display: block;
+            margin-bottom: 10px;
+            font-size: 16px;
+        }
+        .stats {
+            display: flex;
+            gap: 20px;
+            margin-bottom: 20px;
+            flex-wrap: wrap;
+        }
+        .stat-box {
+            flex: 1;
+            min-width: 150px;
+            background: linear-gradient(135deg, #f8f9ff 0%, #e8ebff 100%);
+            padding: 20px;
+            border-radius: 10px;
+            text-align: center;
+            border: 2px solid #e0e5ff;
+        }
+        .stat-number {
+            font-size: 32px;
+            font-weight: bold;
+            color: #667eea;
+            display: block;
+        }
+        .stat-label {
+            font-size: 14px;
+            color: #666;
+            margin-top: 5px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>📱 VCF Contact Editor</h1>
+            <p>Upload Excel or VCF files • Edit contacts • Download VCF</p>
+        </div>
+        
+        <div class="content">
+            <div class="upload-section">
+                <label for="excelInput" class="upload-box">
+                    <div class="icon">📊</div>
+                    <div class="upload-title">Upload Excel</div>
+                    <div class="upload-subtitle">.xlsx, .xls</div>
+                    <input type="file" id="excelInput" accept=".xlsx,.xls">
+                </label>
+
+                <label for="vcfInput" class="upload-box">
+                    <div class="icon">📇</div>
+                    <div class="upload-title">Upload VCF</div>
+                    <div class="upload-subtitle">.vcf, .vcard</div>
+                    <input type="file" id="vcfInput" accept=".vcf,.vcard">
+                </label>
+            </div>
+
+            <div id="status" class="status hide"></div>
+
+            <div id="statsSection" class="stats hide">
+                <div class="stat-box">
+                    <span class="stat-number" id="totalContacts">0</span>
+                    <span class="stat-label">Total Contacts</span>
+                </div>
+                <div class="stat-box">
+                    <span class="stat-number" id="withPhone">0</span>
+                    <span class="stat-label">With Phone</span>
+                </div>
+                <div class="stat-box">
+                    <span class="stat-number" id="withEmail">0</span>
+                    <span class="stat-label">With Email</span>
+                </div>
+            </div>
+
+            <div id="actionButtons" class="btn-group hide">
+                <button id="downloadBtn" class="btn">📥 Download VCF</button>
+                <button id="addContactBtn" class="btn btn-secondary">➕ Add Contact</button>
+                <button id="clearAllBtn" class="btn btn-danger">🗑️ Clear All</button>
+            </div>
+
+            <div id="tableContainer" class="table-container hide">
+                <table>
+                    <thead>
+                        <tr>
+                            <th style="width: 50px;">#</th>
+                            <th style="width: 25%;">Name</th>
+                            <th style="width: 20%;">Phone</th>
+                            <th style="width: 25%;">Email</th>
+                            <th style="width: 15%;">Organization</th>
+                            <th style="width: 80px;">Action</th>
+                        </tr>
+                    </thead>
+                    <tbody id="tableBody"></tbody>
+                </table>
+            </div>
+
+            <div class="info">
+                <strong>📖 How to Use:</strong>
+                <p style="line-height: 1.8;">
+                    <strong>Excel Upload:</strong> Your file should have columns: Name, Phone, Email (optional), Organization (optional)<br>
+                    <strong>VCF Upload:</strong> Upload existing VCF/vCard files to edit them<br>
+                    <strong>Edit:</strong> Click on any field to edit. Changes are instant!<br>
+                    <strong>Download:</strong> Get your edited contacts as a VCF file ready for import
+                </p>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        let allContacts = [];
+        let nextId = 1;
+
+        document.getElementById('excelInput').addEventListener('change', handleExcelFile);
+        document.getElementById('vcfInput').addEventListener('change', handleVCFFile);
+        document.getElementById('downloadBtn').addEventListener('click', downloadVCF);
+        document.getElementById('addContactBtn').addEventListener('click', addNewContact);
+        document.getElementById('clearAllBtn').addEventListener('click', clearAllContacts);
+
+        function handleExcelFile(e) {
+            const file = e.target.files[0];
+            if (!file) return;
+
+            showStatus('Processing Excel file...', 'info');
+
+            const reader = new FileReader();
+            
+            reader.onload = function(event) {
+                try {
+                    const data = new Uint8Array(event.target.result);
+                    const workbook = XLSX.read(data, { type: 'array' });
+                    const firstSheet = workbook.Sheets[workbook.SheetNames[0]];
+                    const rows = XLSX.utils.sheet_to_json(firstSheet);
+
+                    allContacts = [];
+
+                    rows.forEach((row) => {
+                        let name = row.Name || row.name || row.NAME || row['Full Name'] || row.FullName || '';
+                        let phone = row.Phone || row.phone || row.PHONE || row.Number || row.number || row.Mobile || row.mobile || '';
+                        let email = row.Email || row.email || row.EMAIL || '';
+                        let org = row.Organization || row.organization || row.Company || row.company || '';
+                        
+                        name = String(name).trim();
+                        phone = String(phone).trim();
+                        email = String(email).trim();
+                        org = String(org).trim();
+
+                        if (phone && phone.length >= 10) {
+                            if (!phone.startsWith('0') && !phone.startsWith('+') && !phone.startsWith('88')) {
+                                phone = '0' + phone;
+                            }
+                        }
+
+                        if (name || phone) {
+                            allContacts.push({
+                                id: nextId++,
+                                name: name,
+                                phone: phone,
+                                email: email,
+                                organization: org
+                            });
+                        }
+                    });
+
+                    if (allContacts.length > 0) {
+                        displayContacts();
+                        showStatus('✅ Successfully loaded ' + allContacts.length + ' contacts from Excel!', 'success');
+                    } else {
+                        showStatus('⚠️ No contacts found. Make sure your Excel has proper columns.', 'warning');
+                    }
+                } catch (error) {
+                    showStatus('❌ Error reading Excel: ' + error.message, 'error');
+                }
+            };
+
+            reader.readAsArrayBuffer(file);
+        }
+
+        function handleVCFFile(e) {
+            const file = e.target.files[0];
+            if (!file) return;
+
+            showStatus('Processing VCF file...', 'info');
+
+            const reader = new FileReader();
+            
+            reader.onload = function(event) {
+                try {
+                    const vcfContent = event.target.result;
+                    const vcards = vcfContent.split('BEGIN:VCARD');
+                    
+                    allContacts = [];
+
+                    vcards.forEach(vcard => {
+                        if (!vcard.trim()) return;
+
+                        let name = '';
+                        let phone = '';
+                        let email = '';
+                        let org = '';
+
+                        const lines = vcard.split(/\r?\n/);
+                        
+                        lines.forEach(line => {
+                            if (line.startsWith('FN:')) {
+                                name = line.substring(3).trim();
+                            } else if (line.startsWith('TEL')) {
+                                const colonIndex = line.indexOf(':');
+                                if (colonIndex > -1) {
+                                    phone = line.substring(colonIndex + 1).trim();
+                                }
+                            } else if (line.startsWith('EMAIL')) {
+                                const colonIndex = line.indexOf(':');
+                                if (colonIndex > -1) {
+                                    email = line.substring(colonIndex + 1).trim();
+                                }
+                            } else if (line.startsWith('ORG:')) {
+                                org = line.substring(4).trim();
+                            }
+                        });
+
+                        if (name || phone) {
+                            allContacts.push({
+                                id: nextId++,
+                                name: name,
+                                phone: phone,
+                                email: email,
+                                organization: org
+                            });
+                        }
+                    });
+
+                    if (allContacts.length > 0) {
+                        displayContacts();
+                        showStatus('✅ Successfully loaded ' + allContacts.length + ' contacts from VCF!', 'success');
+                    } else {
+                        showStatus('⚠️ No contacts found in VCF file.', 'warning');
+                    }
+                } catch (error) {
+                    showStatus('❌ Error reading VCF: ' + error.message, 'error');
+                }
+            };
+
+            reader.readAsText(file);
+        }
+
+        function displayContacts() {
+            const tbody = document.getElementById('tableBody');
+            tbody.innerHTML = '';
+
+            allContacts.forEach((contact, index) => {
+                const row = tbody.insertRow();
+                
+                const cellNum = row.insertCell(0);
+                cellNum.textContent = index + 1;
+                cellNum.style.fontWeight = 'bold';
+                cellNum.style.color = '#667eea';
+
+                const cellName = row.insertCell(1);
+                const inputName = document.createElement('input');
+                inputName.type = 'text';
+                inputName.value = contact.name;
+                inputName.addEventListener('input', (e) => {
+                    contact.name = e.target.value;
+                });
+                cellName.appendChild(inputName);
+
+                const cellPhone = row.insertCell(2);
+                const inputPhone = document.createElement('input');
+                inputPhone.type = 'text';
+                inputPhone.value = contact.phone;
+                inputPhone.addEventListener('input', (e) => {
+                    contact.phone = e.target.value;
+                    updateStats();
+                });
+                cellPhone.appendChild(inputPhone);
+
+                const cellEmail = row.insertCell(3);
+                const inputEmail = document.createElement('input');
+                inputEmail.type = 'text';
+                inputEmail.value = contact.email;
+                inputEmail.addEventListener('input', (e) => {
+                    contact.email = e.target.value;
+                    updateStats();
+                });
+                cellEmail.appendChild(inputEmail);
+
+                const cellOrg = row.insertCell(4);
+                const inputOrg = document.createElement('input');
+                inputOrg.type = 'text';
+                inputOrg.value = contact.organization;
+                inputOrg.addEventListener('input', (e) => {
+                    contact.organization = e.target.value;
+                });
+                cellOrg.appendChild(inputOrg);
+
+                const cellAction = row.insertCell(5);
+                const deleteBtn = document.createElement('button');
+                deleteBtn.className = 'delete-btn';
+                deleteBtn.textContent = '🗑️ Delete';
+                deleteBtn.addEventListener('click', () => deleteContact(contact.id));
+                cellAction.appendChild(deleteBtn);
+            });
+
+            document.getElementById('tableContainer').classList.remove('hide');
+            document.getElementById('actionButtons').classList.remove('hide');
+            document.getElementById('statsSection').classList.remove('hide');
+            updateStats();
+        }
+
+        function updateStats() {
+            document.getElementById('totalContacts').textContent = allContacts.length;
+            document.getElementById('withPhone').textContent = allContacts.filter(c => c.phone).length;
+            document.getElementById('withEmail').textContent = allContacts.filter(c => c.email).length;
+        }
+
+        function deleteContact(id) {
+            if (confirm('Are you sure you want to delete this contact?')) {
+                allContacts = allContacts.filter(c => c.id !== id);
+                displayContacts();
+                showStatus('✅ Contact deleted successfully!', 'success');
+            }
+        }
+
+        function addNewContact() {
+            allContacts.push({
+                id: nextId++,
+                name: '',
+                phone: '',
+                email: '',
+                organization: ''
+            });
+            displayContacts();
+            showStatus('✅ New contact added! Fill in the details.', 'success');
+        }
+
+        function clearAllContacts() {
+            if (confirm('Are you sure you want to clear all contacts? This cannot be undone.')) {
+                allContacts = [];
+                document.getElementById('tableContainer').classList.add('hide');
+                document.getElementById('actionButtons').classList.add('hide');
+                document.getElementById('statsSection').classList.add('hide');
+                showStatus('✅ All contacts cleared!', 'success');
+            }
+        }
+
+        function downloadVCF() {
+            if (allContacts.length === 0) {
+                alert('No contacts to download!');
+                return;
+            }
+
+            let vcfContent = '';
+
+            allContacts.forEach(contact => {
+                vcfContent += 'BEGIN:VCARD\r\n';
+                vcfContent += 'VERSION:3.0\r\n';
+                if (contact.name) {
+                    vcfContent += 'FN:' + contact.name + '\r\n';
+                }
+                if (contact.phone) {
+                    vcfContent += 'TEL;TYPE=CELL:' + contact.phone + '\r\n';
+                }
+                if (contact.email) {
+                    vcfContent += 'EMAIL:' + contact.email + '\r\n';
+                }
+                if (contact.organization) {
+                    vcfContent += 'ORG:' + contact.organization + '\r\n';
+                }
+                vcfContent += 'END:VCARD\r\n';
+            });
+
+            const blob = new Blob([vcfContent], { type: 'text/vcard;charset=utf-8' });
+            const link = document.createElement('a');
+            link.href = URL.createObjectURL(blob);
+            link.download = 'contacts_edited.vcf';
+            
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+            
+            setTimeout(function() {
+                URL.revokeObjectURL(link.href);
+            }, 100);
+
+            showStatus('✅ VCF file downloaded with ' + allContacts.length + ' contacts!', 'success');
+        }
+
+        function showStatus(message, type) {
+            const statusDiv = document.getElementById('status');
+            statusDiv.textContent = message;
+            statusDiv.className = 'status';
+            if (type === 'warning') statusDiv.classList.add('warning');
+            if (type === 'error') statusDiv.classList.add('error');
+            statusDiv.classList.remove('hide');
+        }
+    </script>
+</body>
+</html>
